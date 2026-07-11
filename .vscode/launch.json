@@ -1,0 +1,14 @@
+{
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Spring Boot-ProfilerXApplication<ProfilerX>",
+            "request": "launch",
+            "cwd": "${workspaceFolder}",
+            "mainClass": "com.urvish.ProfilerX.ProfilerXApplication",
+            "projectName": "ProfilerX",
+            "args": "",
+            "envFile": "${workspaceFolder}/.env"
+        }
+    ]
+}
