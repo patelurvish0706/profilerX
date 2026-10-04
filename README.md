@@ -1,0 +1,409 @@
+# ProfilerX
+
+## Overview
+
+ProfilerX is a customizable developer portfolio platform where every registered developer gets a public portfolio page.
+
+**Portfolio URL**
+
+```
+artifact/{username}
+```
+
+Visitors can view the portfolio without logging in, while developers have complete control over their profile, sections, appearance, and visibility.
+
+---
+
+# Core Features
+
+## Authentication
+
+* Register
+* Login
+* JWT Authentication
+* Email Verification (Required)
+* Phone Verification (Required)
+
+---
+
+## Portfolio Customization
+
+Developers can:
+
+* Change profile theme colors
+* Change background color
+* Reorder portfolio sections using drag-and-drop
+* Show/Hide individual sections
+* Make profile Public or Private
+* Enable/Disable portfolio hosting
+
+---
+
+## Portfolio Sections
+
+Each section is optional and can be added, removed, hidden, or reordered.
+
+* About
+* Links
+* Skills
+* Experience
+* Projects
+* Certifications
+* Currently Doing
+* Blog *(Optional)*
+
+The frontend design remains consistent for every user. Only the order and visibility of sections change.
+
+---
+
+# Public Routes
+
+```
+GET  /artifact/{username}     -> Public Portfolio
+
+POST /artifact/register
+
+POST /artifact/login
+```
+
+---
+
+# Protected Routes
+
+```
+GET    /artifact/dashboard
+
+PUT    /artifact/customize
+
+PUT    /artifact/profile
+
+POST   /artifact/projects
+
+POST   /artifact/experience
+
+POST   /artifact/skills
+
+POST   /artifact/certifications
+```
+
+Authentication required using JWT.
+
+---
+
+# Dashboard
+
+Developer Dashboard includes:
+
+* Portfolio Preview
+* Total Profile Views
+* Public / Private Toggle
+* Theme Customization
+* Section Visibility
+* Section Reordering
+* Resume Upload
+* Profile Analytics
+
+---
+
+# Developer Profile
+
+```
+id
+username
+name
+email
+phone
+password
+jwtToken
+jwtValidity
+jwtExpiry
+visibility
+profileViews
+themeColor
+backgroundColor
+resumeUrl
+about
+createdAt
+updatedAt
+```
+
+---
+
+# Links
+
+```json
+[
+  {
+    "title": "GitHub",
+    "url": ""
+  },
+  {
+    "title": "LinkedIn",
+    "url": ""
+  }
+]
+```
+
+---
+
+# Skills
+
+```json
+[
+  "Java",
+  "Spring Boot",
+  "React",
+  "MySQL"
+]
+```
+
+---
+
+# Projects
+
+```json
+[
+  {
+    "title": "",
+    "description": "",
+    "techStack": [],
+    "github": "",
+    "liveLink": "",
+    "status": "Planning | Working | Completed",
+    "createdAt": ""
+  }
+]
+```
+
+---
+
+# Experience
+
+```json
+[
+  {
+    "company": "",
+    "role": "",
+    "work": "",
+    "joinAt": "",
+    "leaveAt": "",
+    "description": ""
+  }
+]
+```
+
+---
+
+# Certifications
+
+```json
+[
+  {
+    "title": "",
+    "issuer": "",
+    "issueDate": "",
+    "credentialLink": ""
+  }
+]
+```
+
+---
+
+# Currently Doing
+
+```json
+[
+  {
+    "title": "",
+    "description": "",
+    "startedAt": ""
+  }
+]
+```
+
+---
+
+# Blog (Optional)
+
+Simple markdown/text blog posts that developers can publish or remove anytime.
+
+---
+
+# AI Features (Optional)
+
+* Upload Resume
+* AI extracts information from the resume
+* Automatically generates:
+
+  * Professional Introduction
+  * About Section
+  * Skills Suggestions
+  * Project Summary
+* Developers can edit the generated content before publishing.
+
+---
+
+# Analytics
+
+* Total Portfolio Views
+* Daily Views
+* Monthly Views
+* Unique Visitors *(Optional)*
+
+---
+
+# Tech Stack
+
+### Backend
+
+* Spring Boot
+* Spring Security
+* JWT Authentication
+* Spring Data JPA
+* Hibernate
+
+### Frontend
+
+* Vanilla JavaScript
+* HTML5
+* CSS3
+
+### Database
+
+* MySQL
+
+### Deployment
+
+* Backend: Spring Boot Hosting
+* Frontend: Static Hosting
+* Publicly Accessible Online
+
+---
+
+# Database Design
+
+## developers
+
+```
+dev_id (PK)
+username (Unique)
+name
+email
+phone
+password
+jwt_token
+jwt_validity
+jwt_expiry
+visibility
+theme_color
+background_color
+about
+resume_url
+profile_views
+created_at
+updated_at
+```
+
+---
+
+## links
+
+```
+id
+dev_id (FK)
+title
+url
+```
+
+---
+
+## skills
+
+```
+id
+dev_id (FK)
+skill_name
+```
+
+---
+
+## experience
+
+```
+id
+dev_id (FK)
+company_name
+role
+description
+start_at
+end_at
+```
+
+---
+
+## projects
+
+```
+id
+dev_id (FK)
+project_name
+description
+tech_stack
+status
+github
+live_link
+created_at
+```
+
+---
+
+## certifications
+
+```
+id
+dev_id (FK)
+title
+issuer
+issue_date
+credential_link
+```
+
+---
+
+## currently_doing
+
+```
+id
+dev_id (FK)
+title
+description
+started_at
+```
+
+---
+
+## blogs (Optional)
+
+```
+id
+dev_id (FK)
+title
+content
+created_at
+updated_at
+```
+
+---
+
+# Future Enhancements
+
+* Custom domain support
+* Dark/Light themes
+* QR code for portfolio
+* SEO optimization
+* Download portfolio as PDF
+* GitHub API integration
+* Visitor comments/testimonials
+* Social sharing
+* AI portfolio improvements
+* Portfolio templates
