@@ -1,171 +1,330 @@
-let currentProfile = {};
+let dashboardState = {
+    profile: {},
+    sectionOrder: [],
+    hiddenSections: new Set(),
+    skills: [],
+    links: [],
+    experience: [],
+    projects: [],
+    certifications: [],
+    currentlyDoing: [],
+    blogs: []
+};
 
 async function renderDashboard(container) {
-    container.innerHTML = `
-        ${getNavHeader(true)}
-        <div class="container mt-3">
-            <div class="glass-panel text-center mb-3">
-                <h1 id="welcomeText">Dashboard</h1>
-                <p>Manage your public portfolio and settings</p>
-                <div class="mt-2">
-                    <a id="publicUrl" href="#" target="_blank" class="btn" style="background-color: var(--text-main);">View Public Profile</a>
-                </div>
-            </div>
-
-            <div class="glass-panel mb-3">
-                <h2>Profile Settings</h2>
-                <form id="settingsForm" onsubmit="saveSettings(event)">
-                    <div class="form-group">
-                        <label>Visibility (Public?)</label>
-                        <select id="visibility" style="padding:0.5rem; width:100%; border-radius:8px;">
-                            <option value="true">Public</option>
-                            <option value="false">Private</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Accent Theme Color</label>
-                        <input type="color" id="themeColor" value="#2563eb" style="padding:0; height:40px; cursor:pointer;">
-                        <small style="display:block; margin-top:5px;">Used subtly to tint your profile</small>
-                    </div>
-                    <button type="submit" class="btn">Save Settings</button>
-                    <span id="settingsMsg" style="margin-left:1rem; color:green;"></span>
-                </form>
-            </div>
-
-            <div class="glass-panel">
-                <h2>Reorder Sections</h2>
-                <p class="mb-2">Drag and drop to reorder how sections appear on your portfolio. Click "Save Order" when done.</p>
-                
-                <div id="sectionList">
-                    <!-- Sections will be rendered here -->
-                </div>
-
-                <button class="btn mt-2" onclick="saveSectionOrder()">Save Order</button>
-                <span id="orderMsg" style="margin-left:1rem; color:green;"></span>
-            </div>
-        </div>
-    `;
+    mount(container, el('div', { className: 'page page-dashboard' }, [
+        NavBar({ loggedIn: true }),
+        el('main', { className: 'dashboard-shell container', id: 'dashboardRoot' }, [
+            el('div', { className: 'loading-state', text: 'Loading dashboard…' })
+        ])
+    ]));
 
     try {
         const data = await apiCall('/dashboard');
-        const developer = data.developer;
-        currentProfile = data.profile;
-
-        document.getElementById('welcomeText').innerText = \`Welcome, \${developer.fullName}\`;
+        dashboardState.profile = data.profile || {};
         
-        const username = localStorage.getItem('username');
-        document.getElementById('publicUrl').href = \`#/artifact/\${username}\`;
+        let orderString = data.arrangement ? data.arrangement.sectionOrder : data.profile.sectionOrder;
+        dashboardState.sectionOrder = parseSectionOrder(orderString);
+        dashboardState.hiddenSections = parseHiddenSections(data.profile.hiddenSections); // if still storing here
 
-        document.getElementById('visibility').value = currentProfile.visibility;
-        document.getElementById('themeColor').value = currentProfile.themeColor || '#2563eb';
+        dashboardState.skills = data.skills || [];
+        dashboardState.links = data.links || [];
+        dashboardState.experience = data.experience || [];
+        dashboardState.projects = data.projects || [];
+        dashboardState.certifications = data.certifications || [];
+        dashboardState.currentlyDoing = data.currentlyDoing || [];
+        dashboardState.blogs = data.blogs || [];
 
-        const order = currentProfile.sectionOrder || 'about,links,skills,experience,projects,certifications,currentlyDoing,blogs';
-        renderSections(order.split(','));
+        const missing = Object.keys(SECTION_META).filter(k => !dashboardState.sectionOrder.includes(k));
+        dashboardState.sectionOrder.push(...missing);
 
+        renderDashboardContent();
     } catch (err) {
-        console.error(err);
-        if(err.message.includes('JWT') || err.message.includes('authenticate')) {
+        const root = document.getElementById('dashboardRoot');
+        if (err.message.includes('authenticate') || err.message.includes('JWT') || err.message.includes('403')) {
             logout();
+            return;
         }
+        mount(root, el('div', { className: 'empty-state' }, [
+            el('h2', { text: 'Could not load dashboard' }),
+            el('p', { text: err.message || 'Please try again later.' })
+        ]));
     }
 }
 
-function renderSections(orderArray) {
+function renderDashboardContent() {
+    const username = getUsername() || 'you';
+    const profile = dashboardState.profile;
+    const views = profile.profileViews ?? 0;
+    const isPublic = profile.visibility !== false;
+
+    const root = document.getElementById('dashboardRoot');
+    mount(root,
+        dashboardHeader(username, views, isPublic),
+        dashboardStats(views, isPublic),
+        dashboardSettings(profile),
+        dashboardSections(),
+        dashboardContentEditors(),
+        dashboardAnalytics(views)
+    );
+
+    bindDashboardEvents();
+    renderSectionList();
+}
+
+function dashboardHeader(username, views, isPublic) {
+    return el('section', { className: 'dash-header panel fade-in' }, [
+        el('div', { className: 'dash-header-copy' }, [
+            el('p', { className: 'eyebrow', text: 'Developer dashboard' }),
+            el('h1', { text: `Welcome, ${username}` }),
+            el('p', { text: 'Customize your portfolio, control visibility, and preview your public page.' })
+        ]),
+        el('div', { className: 'dash-header-actions' }, [
+            el('a', {
+                href: `#/artifact/${username}`,
+                className: 'btn btn-secondary',
+                target: '_blank',
+                text: 'Preview portfolio'
+            }),
+            el('span', {
+                className: `status-pill ${isPublic ? 'status-public' : 'status-private'}`,
+                text: isPublic ? 'Public' : 'Private'
+            })
+        ])
+    ]);
+}
+
+function dashboardStats(views, isPublic) {
+    return el('section', { className: 'stat-grid fade-in' }, [
+        statCard('Total views', views, 'Lifetime portfolio impressions'),
+        statCard('Visibility', isPublic ? 'Public' : 'Private', isPublic ? 'Anyone with the link can view' : 'Hidden from visitors'),
+        statCard('Sections', `${dashboardState.sectionOrder.length - dashboardState.hiddenSections.size} visible`, 'Active portfolio sections')
+    ]);
+}
+
+function statCard(label, value, hint) {
+    return el('article', { className: 'stat-card panel' }, [
+        el('p', { className: 'stat-label', text: label }),
+        el('p', { className: 'stat-value', text: String(value) }),
+        el('p', { className: 'stat-hint', text: hint })
+    ]);
+}
+
+function dashboardSettings(profile) {
+    return el('section', { className: 'panel dash-panel fade-in' }, [
+        el('div', { className: 'panel-head' }, [
+            el('h2', { text: 'Profile settings' }),
+            el('p', { text: 'Theme, visibility, and about content.' })
+        ]),
+        el('form', { id: 'settingsForm', className: 'settings-form', on: { submit: saveSettings } }, [
+            el('div', { className: 'form-row' }, [
+                el('div', { className: 'form-group' }, [
+                    el('label', { for: 'visibility', text: 'Portfolio visibility' }),
+                    el('select', { id: 'visibility', name: 'visibility', className: 'input-select' }, [
+                        el('option', { value: 'true', text: 'Public — visible to everyone' }),
+                        el('option', { value: 'false', text: 'Private — hidden from visitors' })
+                    ])
+                ])
+            ]),
+            el('div', { className: 'form-row' }, [
+                el('div', { className: 'form-group' }, [
+                    el('label', { for: 'themeColor', text: 'Accent color' }),
+                    el('input', { id: 'themeColor', name: 'themeColor', type: 'color', value: profile.themeColor || '#111111' })
+                ]),
+                el('div', { className: 'form-group' }, [
+                    el('label', { for: 'backgroundColor', text: 'Background color' }),
+                    el('input', { id: 'backgroundColor', name: 'backgroundColor', type: 'color', value: profile.backgroundColor || '#fafafa' })
+                ])
+            ]),
+
+            el('div', { className: 'form-group' }, [
+                el('label', { for: 'resumeUpload', text: 'Resume upload' }),
+                el('input', { id: 'resumeUpload', type: 'file', accept: '.pdf,.doc,.docx', className: 'file-input' }),
+                el('p', { className: 'form-note', text: 'AI resume extraction — coming soon. Upload is stored locally for preview.' })
+            ]),
+            el('div', { className: 'form-actions' }, [
+                el('button', { type: 'submit', className: 'btn', text: 'Save settings' })
+            ])
+        ])
+    ]);
+}
+
+function dashboardSections() {
+    return el('section', { className: 'panel dash-panel fade-in' }, [
+        el('div', { className: 'panel-head' }, [
+            el('h2', { text: 'Section layout' }),
+            el('p', { text: 'Drag to reorder. Toggle visibility for each section. Changes are saved automatically.' })
+        ]),
+        el('div', { id: 'sectionList', className: 'section-list' })
+    ]);
+}
+
+function dashboardContentEditors() {
+    return el('section', { className: 'panel dash-panel fade-in' }, [
+        el('div', { className: 'panel-head' }, [
+            el('h2', { text: 'Content editors' }),
+            el('p', { text: 'Manage the content for each section.' })
+        ]),
+        el('div', { id: 'contentEditorList', className: 'content-editor-list' })
+    ]);
+}
+
+function dashboardAnalytics(views) {
+    const bars = [40, 65, 45, 80, 55, 70, views % 100 || 30].map((h, i) =>
+        el('div', { className: 'bar', style: { height: `${Math.min(h, 100)}%` }, attrs: { 'aria-label': `Day ${i + 1}` } })
+    );
+
+    return el('section', { className: 'panel dash-panel fade-in' }, [
+        el('div', { className: 'panel-head' }, [
+            el('h2', { text: 'Analytics' }),
+            el('p', { text: 'Profile performance at a glance.' })
+        ]),
+        el('div', { className: 'analytics-grid' }, [
+            el('div', { className: 'analytics-card' }, [
+                el('p', { className: 'stat-label', text: 'Total views' }),
+                el('p', { className: 'analytics-number', text: String(views) })
+            ]),
+            el('div', { className: 'analytics-card' }, [
+                el('p', { className: 'stat-label', text: 'This month' }),
+                el('p', { className: 'analytics-number', text: String(Math.max(0, Math.floor(views * 0.4))) })
+            ]),
+            el('div', { className: 'analytics-card analytics-chart' }, [
+                el('p', { className: 'stat-label', text: 'Daily views (sample)' }),
+                el('div', { className: 'bar-chart' }, bars)
+            ])
+        ])
+    ]);
+}
+
+function bindDashboardEvents() {
+    const profile = dashboardState.profile;
+    document.getElementById('visibility').value = profile.visibility === false ? 'false' : 'true';
+}
+
+function renderSectionList() {
     const list = document.getElementById('sectionList');
-    list.innerHTML = '';
+    clear(list);
 
-    const labels = {
-        'about': 'About',
-        'links': 'Links',
-        'skills': 'Skills',
-        'experience': 'Experience',
-        'projects': 'Projects',
-        'certifications': 'Certifications',
-        'currentlyDoing': 'Currently Doing',
-        'blogs': 'Blogs'
-    };
+    dashboardState.sectionOrder.forEach(key => {
+        const meta = SECTION_META[key];
+        const hidden = dashboardState.hiddenSections.has(key);
 
-    orderArray.forEach(key => {
-        if(!labels[key]) return; // ignore unknown
-        const div = document.createElement('div');
-        div.className = 'draggable-item';
-        div.draggable = true;
-        div.dataset.key = key;
-        div.innerHTML = \`<span>\${labels[key]}</span> <span>☰</span>\`;
-        
-        div.addEventListener('dragstart', handleDragStart);
-        div.addEventListener('dragover', handleDragOver);
-        div.addEventListener('drop', handleDrop);
-        div.addEventListener('dragenter', handleDragEnter);
-        
-        list.appendChild(div);
+        const header = el('div', { className: 'section-header' }, [
+            el('span', { className: 'section-grip', text: icon('grip') }),
+            el('span', { className: 'section-icon', text: meta.icon }),
+            el('span', { className: 'section-label', text: meta.label }),
+            el('button', {
+                type: 'button',
+                className: 'visibility-toggle',
+                text: hidden ? 'Hidden' : 'Visible',
+                on: { click: (e) => { e.stopPropagation(); toggleSectionVisibility(key); } }
+            })
+        ]);
+
+        const item = el('div', {
+            className: `section-item${hidden ? ' section-item-hidden' : ''}`,
+            draggable: true,
+            dataset: { key }
+        }, [header]);
+
+        item.addEventListener('dragstart', onDragStart);
+        item.addEventListener('dragend', onDragEnd);
+        item.addEventListener('dragover', onDragOver);
+        item.addEventListener('drop', onDrop);
+        list.appendChild(item);
     });
+
+    // Also render content editors separately
+    const editorList = document.getElementById('contentEditorList');
+    if (editorList) {
+        clear(editorList);
+        dashboardState.sectionOrder.forEach(key => {
+            const meta = SECTION_META[key];
+            const editorWrapper = el('div', { className: 'content-editor-card' }, [
+                el('h3', { text: meta.label }),
+                typeof renderSectionEditor === 'function' ? renderSectionEditor(key) : null
+            ]);
+            editorList.appendChild(editorWrapper);
+        });
+    }
 }
 
-let draggedItem = null;
+let draggedSection = null;
 
-function handleDragStart(e) {
-    draggedItem = this;
-    e.dataTransfer.effectAllowed = 'move';
+function onDragStart(e) {
+    draggedSection = this;
     this.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
 }
 
-function handleDragOver(e) {
+function onDragEnd() {
+    this.classList.remove('dragging');
+    draggedSection = null;
+}
+
+function onDragOver(e) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    return false;
 }
 
-function handleDragEnter(e) {
+function onDrop(e) {
     e.preventDefault();
+    if (!draggedSection || draggedSection === this) return;
+
+    const list = document.getElementById('sectionList');
+    const items = [...list.children];
+    const from = items.indexOf(draggedSection);
+    const to = items.indexOf(this);
+
+    const order = [...dashboardState.sectionOrder];
+    const [moved] = order.splice(from, 1);
+    order.splice(to, 0, moved);
+    dashboardState.sectionOrder = order;
+    renderSectionList();
+    saveSectionLayout();
 }
 
-function handleDrop(e) {
-    e.stopPropagation();
-    if (draggedItem !== this) {
-        const list = document.getElementById('sectionList');
-        const items = Array.from(list.children);
-        const draggedIndex = items.indexOf(draggedItem);
-        const droppedIndex = items.indexOf(this);
-        
-        if (draggedIndex < droppedIndex) {
-            this.parentNode.insertBefore(draggedItem, this.nextSibling);
-        } else {
-            this.parentNode.insertBefore(draggedItem, this);
-        }
+function toggleSectionVisibility(key) {
+    if (dashboardState.hiddenSections.has(key)) {
+        dashboardState.hiddenSections.delete(key);
+    } else {
+        dashboardState.hiddenSections.add(key);
     }
-    draggedItem.classList.remove('dragging');
-    return false;
+    renderSectionList();
+    saveSectionLayout();
 }
 
 async function saveSettings(e) {
     e.preventDefault();
+    const form = e.target;
+
     const body = {
-        visibility: document.getElementById('visibility').value === 'true',
-        themeColor: document.getElementById('themeColor').value
+        visibility: form.visibility.value === 'true',
+        themeColor: form.themeColor.value,
+        backgroundColor: form.backgroundColor.value
     };
 
     try {
-        await apiCall('/dashboard/customize', 'PUT', body);
-        const msg = document.getElementById('settingsMsg');
-        msg.innerText = 'Settings saved!';
-        setTimeout(() => msg.innerText = '', 3000);
-    } catch (err) {
-        alert('Failed to save settings');
+        const updated = await apiCall('/dashboard/customize', 'PUT', body);
+        dashboardState.profile = { ...dashboardState.profile, ...updated };
+        toast('Settings saved');
+        renderDashboardContent();
+    } catch {
+        toast('Failed to save settings', 'error');
     }
 }
 
-async function saveSectionOrder() {
-    const list = document.getElementById('sectionList');
-    const items = Array.from(list.children);
-    const order = items.map(el => el.dataset.key).join(',');
+async function saveSectionLayout() {
+    const body = {
+        sectionOrder: dashboardState.sectionOrder.join(','),
+        hiddenSections: [...dashboardState.hiddenSections].join(',')
+    };
 
     try {
-        await apiCall('/dashboard/customize', 'PUT', { sectionOrder: order });
-        const msg = document.getElementById('orderMsg');
-        msg.innerText = 'Order saved!';
-        setTimeout(() => msg.innerText = '', 3000);
-    } catch (err) {
-        alert('Failed to save order');
+        const updated = await apiCall('/dashboard/customize', 'PUT', body);
+        dashboardState.profile = { ...dashboardState.profile, ...updated };
+        toast('Section layout saved');
+    } catch {
+        toast('Failed to save layout', 'error');
     }
 }

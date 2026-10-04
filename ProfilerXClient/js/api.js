@@ -1,45 +1,31 @@
-const API_BASE_URL = 'http://localhost:8080/artifact';
+const API_BASE_URL = 'http://localhost:8080';
 
 function getToken() {
     return localStorage.getItem('token');
 }
 
+function getUsername() {
+    return localStorage.getItem('username');
+}
+
 async function apiCall(endpoint, method = 'GET', body = null) {
-    const headers = {
-        'Content-Type': 'application/json'
-    };
-    
+    const headers = { 'Content-Type': 'application/json' };
     const token = getToken();
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+    if (token) headers.Authorization = `Bearer ${token}`;
+
+    const config = { method, headers };
+    if (body) config.body = JSON.stringify(body);
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+    const contentType = response.headers.get('content-type') || '';
+    const payload = contentType.includes('application/json')
+        ? await response.json()
+        : await response.text();
+
+    if (!response.ok) {
+        const message = typeof payload === 'string' ? payload : payload?.message || 'Request failed';
+        throw new Error(message);
     }
 
-    const config = {
-        method,
-        headers,
-    };
-
-    if (body) {
-        config.body = JSON.stringify(body);
-    }
-
-    try {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
-        
-        if (!response.ok) {
-            const errorData = await response.text();
-            throw new Error(errorData || 'API Error');
-        }
-
-        // Try to parse JSON, if it fails return raw text
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            return await response.json();
-        } else {
-            return await response.text();
-        }
-    } catch (error) {
-        console.error("API call failed:", error);
-        throw error;
-    }
+    return payload;
 }

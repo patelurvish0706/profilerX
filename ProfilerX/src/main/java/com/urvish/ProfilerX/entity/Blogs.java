@@ -1,6 +1,6 @@
 package com.urvish.ProfilerX.entity;
 
-import com.urvish.ProfilerX.dto.ExperienceDTO;
+import com.urvish.ProfilerX.dto.BlogDTO;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,8 +12,8 @@ import java.util.ArrayList;
 @Entity
 @AllArgsConstructor
 @RequiredArgsConstructor
-@Table(name = "Experiences")
-public class Experience {
+@Table(name = "Blogs")
+public class Blogs {
 
     @ManyToOne
     @JoinColumn(name = "developer_id")
@@ -21,8 +21,8 @@ public class Experience {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long experienceId;
+    private Long blogsId;
 
-    private ArrayList<ExperienceDTO> allExperience;
+    private ArrayList<BlogDTO> allBlogs;
 
 }

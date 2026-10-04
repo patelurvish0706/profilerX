@@ -8,7 +8,7 @@ public class ProfilerXApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(ProfilerXApplication.class, args);
-		System.out.println("\nRunning Successfully");
+		System.out.println("Run Successfully...");
 	}
 
 }
