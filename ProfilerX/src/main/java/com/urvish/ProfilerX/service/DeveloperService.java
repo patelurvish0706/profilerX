@@ -2,21 +2,17 @@ package com.urvish.ProfilerX.service;
 
 import com.urvish.ProfilerX.dto.*;
 import com.urvish.ProfilerX.entity.Developer;
-import com.urvish.ProfilerX.entity.Skills;
 import com.urvish.ProfilerX.repository.*;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.RequestBody;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-
-import static org.springframework.http.ResponseEntity.ok;
 
 @Service
 @RequiredArgsConstructor
@@ -89,12 +85,11 @@ public class DeveloperService {
         return existingDev;
     }
 
-    public ResponseEntity<DeveloperResponseDTO> newDeveloper(@Valid @RequestBody DeveloperRequestDTO developerRequestDTO){
+    public DeveloperResponseDTO newDeveloper(@Valid DeveloperRequestDTO developerRequestDTO){
 
             Developer newDev = dtoToEntity(developerRequestDTO);
             Developer savedDev = developerRepository.save(newDev);
-            DeveloperResponseDTO respDev = entityToDto(savedDev);
-            return new ResponseEntity<>(respDev, HttpStatus.CREATED);
+            return entityToDto(savedDev);
 
     }
 
@@ -131,7 +126,7 @@ public class DeveloperService {
     }
 
 
-    public DeveloperResponseDTO updateSpecificDeveloper(Long id, DeveloperUpdateRequestDto developerUpdateRequestDto ){
+    public DeveloperResponseDTO updateSpecificDeveloper(Long id, @Valid DeveloperUpdateRequestDto developerUpdateRequestDto ){
         Developer existingDev = developerRepository.findById(id).orElse(null);
 
         DeveloperResponseDTO storedUpdated;
@@ -171,46 +166,86 @@ public class DeveloperService {
 
     //-----------------Profile---------------------
 
-    public DeveloperProfileResponseDTO getProfile(String username){
+    public DeveloperProfileResponseDTO getProfile(String username) {
 
         Developer developer = developerRepository
                 .findByUsername(username)
-                .orElseThrow(() ->
-                        new RuntimeException("Developer not found"));
+                .orElseThrow(() -> new RuntimeException("Developer not found"));
 
         DeveloperProfileResponseDTO response = new DeveloperProfileResponseDTO();
 
-        DeveloperResponseDTO developerDTO = entityToDto(developer);
+        // Profile is private
+        if (!developer.isPublicProfile()) {
+            response.setPublicProfile(false);
+            return response;
+        }
 
-        response.setDeveloper(developerDTO);
+        response.setPublicProfile(true);
+
+        // Developer
+        response.setDeveloper(entityToDto(developer));
 
         // Blogs
-        response.setBlogs(blogsRepository.findByDeveloperId(developer.getId()));
+        blogsRepository.findByDeveloperId(developer.getId())
+                .ifPresent(blogs -> {
+
+                    BlogsResponseDto dto = new BlogsResponseDto();
+
+                    dto.setBlogsId(blogs.getBlogsId());
+                    dto.setAllBlogs(blogs.getAllBlogs());
+
+                    response.setBlogs(Optional.of(dto));
+                });
 
         // Experiences
-        response.setExperiences(experienceRepository.findByDeveloperId(developer.getId()));
+        experienceRepository.findByDeveloperId(developer.getId())
+                .ifPresent(experience -> {
+
+                    ExperienceResponseDto dto = new ExperienceResponseDto();
+
+                    dto.setExperienceId(experience.getExperienceId());
+                    dto.setAllExperience(experience.getAllExperience());
+
+                    response.setExperiences(Optional.of(dto));
+                });
 
         // Projects
-        response.setProjects(projectsRepository.findByDeveloperId(developer.getId()));
+        projectsRepository.findByDeveloperId(developer.getId())
+                .ifPresent(projects -> {
+
+                    ProjectsResponseDto dto = new ProjectsResponseDto();
+
+                    dto.setProjectId(projects.getProjectId());
+                    dto.setAllProjects(projects.getAllProjects());
+
+                    response.setProjects(Optional.of(dto));
+                });
 
         // Certificates
-        CertificatesResponseDto existingCerties = new CertificatesResponseDto();
+        certificatesRepository.findByDeveloperId(developer.getId())
+                .ifPresent(certificates -> {
 
-        existingCerties.setCertificationsId(certificatesRepository.findByDeveloperId(developer.getId()).get().getCertificationsId());
-        existingCerties.setAllCertificates(certificatesRepository.findByDeveloperId(developer.getId()).get().getAllCertificates());
+                    CertificatesResponseDto dto = new CertificatesResponseDto();
 
-        response.setCertificates(Optional.of(existingCerties));
+                    dto.setCertificationsId(certificates.getCertificationsId());
+                    dto.setAllCertificates(certificates.getAllCertificates());
+
+                    response.setCertificates(Optional.of(dto));
+                });
 
         // Skills
-        SkillResponseDto existingSkills = new SkillResponseDto();
+        skillsRepository.findByDeveloperId(developer.getId())
+                .ifPresent(skills -> {
 
-        existingSkills.setSkillsId(skillsRepository.findByDeveloperId(developer.getId()).get().getSkillsId());
-        existingSkills.setAllSkills(skillsRepository.findByDeveloperId(developer.getId()).get().getAllSkills());
+                    SkillResponseDto dto = new SkillResponseDto();
 
-        response.setSkills(Optional.of(existingSkills));
+                    dto.setSkillsId(skills.getSkillsId());
+                    dto.setAllSkills(skills.getAllSkills());
+
+                    response.setSkills(Optional.of(dto));
+                });
 
         return response;
-
     }
 
 

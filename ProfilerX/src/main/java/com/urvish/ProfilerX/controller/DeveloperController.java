@@ -31,7 +31,7 @@ public class DeveloperController {
     }
 
     @PostMapping
-    public ResponseEntity<?> storeDeveloper(@Valid @RequestBody DeveloperRequestDTO developer){
+    public DeveloperResponseDTO storeDeveloper(@Valid @RequestBody DeveloperRequestDTO developer){
         return developerService.newDeveloper(developer);
     }
 

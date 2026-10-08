@@ -21,8 +21,7 @@ public class SkillsService {
 
     public SkillResponseDto getSkills(Long developerId) {
 
-        Skills existSkills = skillsRepository.findByDeveloperId(developerId).orElseThrow(() ->
-                        new RuntimeException("Skills not found"));
+        Skills existSkills = skillsRepository.findByDeveloperId(developerId).orElse(null);
 
         SkillResponseDto skillDto = new SkillResponseDto();
 

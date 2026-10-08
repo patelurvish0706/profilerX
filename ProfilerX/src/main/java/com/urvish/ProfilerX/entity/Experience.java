@@ -5,8 +5,11 @@ import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Data
 @Entity
@@ -23,6 +26,8 @@ public class Experience {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long experienceId;
 
-    private ArrayList<ExperienceDTO> allExperience;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private List<ExperienceDTO> allExperience = new ArrayList<>();
 
 }

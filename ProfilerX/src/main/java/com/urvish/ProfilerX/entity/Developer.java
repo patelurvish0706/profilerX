@@ -87,6 +87,7 @@ public class Developer {
 
     private LocalDateTime updatedAt;
 
+    @NotNull(message = "Must Select Profile Status (Public/Private)")
     private boolean publicProfile ;
 
 
